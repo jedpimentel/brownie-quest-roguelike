@@ -4,15 +4,30 @@
 * raw map data is meant to be represented as characters.
 * 
 * STAT DEFINITION
-* speed: in battle, used to calculate if either player or enemy hits first 
-* vitality: max health, though might be better off not using helth caps
-* offense: more offense means each hit given removes bigger chunks of target's health
-* defense: more defense means each hit recieved removes smaller chunks of your health
+* speed: in battle, used to calculate if either player or enemy hits first (not used)
+* vitality: max health, though might be better off not using health caps
+* offense: more offense means each hit given is more effective
+* defense: more defense means each hit recieved removes smaller chunks of your health (use player level)
 * 
 * map generation rules:
 * 	must be bordered by walls
 *
+* ENEMIES
+* Normal enemies don't really have health.
+* Instead, on each attack a chance roll is made, if it passes they die. 
+* This system will make enemies seem to have different amounts of health.
+* Enemy "strength" will depend solely on their level
+* The final boss does have health.
 *
+* LEVELS
+* You start at level 1, killing an enemy increases your level by one
+* Each level affects probaility rolls one percent in your favor
+*
+* Weapons
+* One weapon upgrade per level, each upgrade increases probabilities ten percen in your favor
+* 
+* 
+* 
 *
 */
 
@@ -24,37 +39,75 @@ var keyboardBindings = {
 	moveDown : 40,
 };
 
-var testMap = [
-	['w', 'w', 'w', 'w', 'w', 'w', 'w'],
-	['w', ' ', ' ', ' ', ' ', ' ', 'w'],
-	['w', ' ', ' ', ' ', ' ', ' ', 'w'],
-	['w', ' ', ' ', ' ', ' ', ' ', 'w'],
-	['w', ' ', ' ', ' ', ' ', ' ', 'w'],
-	['w', 'p', ' ', ' ', ' ', ' ', 'w'],
-	['w', ' ', ' ', ' ', ' ', ' ', 'w'],
-	['w', 'w', 'w', 'w', 'w', 'w', 'w'],
-];
-
-function generateMap(height, width) {
-	if (arguments.length === 0) {
-		var testMap = [
-			['w', 'w', 'w', 'w', 'w', 'w', 'w'],
-			['w', ' ', ' ', ' ', ' ', ' ', 'w'],
-			['w', ' ', ' ', ' ', ' ', ' ', 'w'],
-			['w', ' ', ' ', ' ', ' ', ' ', 'w'],
-			['w', ' ', ' ', ' ', ' ', ' ', 'w'],
-			['w', 'p', ' ', ' ', ' ', ' ', 'w'],
-			['w', ' ', ' ', ' ', ' ', ' ', 'w'],
-			['w', 'w', 'w', 'w', 'w', 'w', 'w'],
-		];
-		return testMap;
-	}
-}
 
 var mapLegend = {
 	wall  : 'w',
 	space : ' ',
 	player: 'p',
+	enemy : 'e',
+	potion: '+',
+	weapon: '#',
+	portal: '↨',
+}
+var gameDefaults = {
+	mapHeight: 10,
+	mapWidth : 10,
+	playerStartingHealth: 100,
+	enemiesPerLevel     : 5,
+	medianEnemyDamage   : 10,
+	potionsPerLevel     : 2,
+	medianPotionHealth  : 50,
+}
+function generateMap() {
+	var height = gameDefaults.mapHeight;
+	var width = gameDefaults.mapWidth;
+	var enemies = gameDefaults.enemiesPerLevel;
+	var newMap = new Array;
+	for (var i = 0; i < height * width; i++) {
+		if ((i < width) || (i % width === 0) || (i % width === width - 1) || (i > width * (height - 1))) {
+			newMap.push(mapLegend.wall);
+		} else {
+			newMap.push(mapLegend.space);
+		}
+	}
+	// unoptimized, returns valid index containing entry
+	function randomCellOf(legendEntry) {
+		var validCells = findAllIndexes(newMap, legendEntry);
+		if (validCells.length < 1) { return -1; }
+		var randomNumber = Math.floor(Math.random() * validCells.length);
+		return validCells[randomNumber];
+	}
+	var enemies = enemies || 0;
+	while (enemies--) {
+		newMap[randomCellOf(mapLegend.space)] = mapLegend.enemy;
+	}
+	var potions = gameDefaults.potionsPerLevel || 0; 
+	while (potions--) {
+		newMap[randomCellOf(mapLegend.space)] = mapLegend.potion;
+	}
+	var weapons = 1;
+	while (weapons--) {
+		newMap[randomCellOf(mapLegend.space)] = mapLegend.weapon;
+	}
+	var portals = 1;
+	while (portals--) {
+		newMap[randomCellOf(mapLegend.space)] = mapLegend.portal;
+	}
+	newMap[randomCellOf(mapLegend.space)] = mapLegend.player;
+	// turn into a 2d array as the react code expects this format (early design decision)
+	return newMap;
+	
+}
+
+// checks array for all entries equal to requested val, returns an array of those indexes
+function findAllIndexes(arr, val) {
+	var matches = new Array;
+	for (var index = 0; index < arr.length; index++) {
+		if (arr[index] === val) {
+			matches.push(index);
+		}
+	}
+	return matches;
 }
 
 var MapCell = React.createClass({
@@ -68,18 +121,22 @@ var MapCell = React.createClass({
 // would be cool to have the state map be obscured at beginning and slowly upgare it from the prop map when valid.
 var MainMap = React.createClass({
 	getInitialState: function() {
-		var initialMap = generateMap();
-		var mapWidth = matrixWidth(initialMap);
-		var mapHeight = matrixHeight(initialMap);
-		// convert 2d arr to 1d arr
-		var flattenedMap = Array.prototype.concat.apply([], initialMap);
-		var playerPos = flattenedMap.indexOf(mapLegend.player)
+		var mapHeight = gameDefaults.mapHeight;
+		var mapWidth = gameDefaults.mapWidth;
+		var levelMap = generateMap();
+		// convert 2d arr to 1d arr no longer necessary
+		// var flattenedMap = Array.prototype.concat.apply([], initialMap);
+		var playerPos = levelMap.indexOf(mapLegend.player)
 		
 		return ({
-			levelMap : flattenedMap,
-			mapWidth : mapWidth,
-			mapHeight: mapHeight,
-			playerPos: playerPos,
+			levelMap    : levelMap,
+			mapWidth    : mapWidth,
+			mapHeight   : mapHeight,
+			playerPos   : playerPos,
+			playerLevel : 0,
+			playerHealth: gameDefaults.playerStartingHealth,
+			weaponLevel : 0,
+			gameLevel   : 0,
 		});
 	},
 	componentDidMount: function() {
@@ -87,6 +144,16 @@ var MainMap = React.createClass({
 	},
 	componentWillUnmount: function() {
 		window.removeEventListener('keydown', this.handleKeyDown);
+	},
+	// ! ! ! S U P E R   I M P O R T A N T ! ! !
+	// calc if an attack killed the enemy, used to balance the game
+	killRoll: function() {
+		// player gains a level for each kill, a weapon upgrade is worth ten player levels
+		var userPower = 50 + this.state.playerLevel + 10 * this.state.weaponLevel;
+		var maxPowerGainedPerLevel = gameDefaults.enemiesPerLevel + 10;
+		var enemyPower = 50 + maxPowerGainedPerLevel * this.state.gameLevel;
+		var roll = Math.random() * userPower > Math.random() * enemyPower;
+		return roll;
 	},
 	// TODO: make held down movement smoother
 	handleKeyDown: function(e) { 
@@ -101,7 +168,7 @@ var MainMap = React.createClass({
 		}
 	},
 	cellAt: function(direction) {
-		console.log(direction)
+		//console.log(direction)
 		var playerPos = this.state.playerPos;
 		var cellAtDirection;
 		if (direction === 'up'   ) {return playerPos - this.state.mapWidth;}
@@ -110,20 +177,50 @@ var MainMap = React.createClass({
 		if (direction === 'left' ) {return playerPos - 1;}
 		throw direction + ' is not a valid direction for cellAt';
 	},
-	movePlayer: function(newPosition) {
+	movePlayer: function(targetSquare) {
 		var oldPosition = this.state.playerPos;
 		var oldMap      = this.state.levelMap;
+		var newPlayerPos= this.state.playerPos;
 		var newMap      = oldMap.slice();
-		if (oldMap[newPosition] === mapLegend.space) {
-			newMap[oldPosition] = mapLegend.space;
-			newMap[newPosition] = mapLegend.player;
-			
-			this.setState({
-				playerPos: newPosition,
-				levelMap: newMap,
-			});
-			return;
+		var playerHealth= this.state.playerHealth;
+		var playerLevel = this.state.playerLevel;
+		var weaponLevel = this.state.weaponLevel;
+		
+		if (newMap[targetSquare] === mapLegend.enemy) {
+			if (this.killRoll()) {
+				console.log('killed enemy')
+				newMap[targetSquare] = mapLegend.space;
+				playerLevel++;
+			}
+			var damageRoll = Math.floor((gameDefaults.medianEnemyDamage + 1) * ( 1 + Math.random()) / 2);
+			playerHealth -= damageRoll;
 		}
+		
+		if (newMap[targetSquare] === mapLegend.potion) {
+			newMap[targetSquare] = mapLegend.space;
+			var healRoll = Math.floor((gameDefaults.medianPotionHealth + 1) * ( 1 + Math.random()) / 2);
+			playerHealth += healRoll;
+		}
+		
+		if (newMap[targetSquare] === mapLegend.weapon) {
+			newMap[targetSquare] = mapLegend.space;
+			weaponLevel++;
+		}
+		
+		if (newMap[targetSquare] === mapLegend.space) {
+			newMap[oldPosition] = mapLegend.space;
+			newMap[targetSquare] = mapLegend.player;
+			newPlayerPos = targetSquare;
+		}
+		
+		this.setState({
+			playerPos   : newPlayerPos,
+			levelMap    : newMap,
+			playerHealth: playerHealth,
+			playerLevel : playerLevel,
+			weaponLevel : weaponLevel
+		})
+		
 	},
 	render: function() {
 		var mapDisplay = new Array;
@@ -135,9 +232,14 @@ var MainMap = React.createClass({
 			mapDisplay.push(<br />)
 		}
 		return (
-			<div id='main-map' onKeyPress={this.handleKeyPress}>
-				{mapDisplay}
-				<div> test </div>
+			<div id='game-area' onKeyPress={this.handleKeyPress}>
+				<div id='main-map'>
+					{mapDisplay}
+				</div>
+				<div>health: {this.state.playerHealth}</div>
+				<div>player-lvl: {this.state.playerLevel}</div>
+				<div>weapon-lvl: {this.state.weaponLevel}</div>
+				<div>game-lvl: {this.state.gameLevel}</div>
 			</div>
 		)
 	}
