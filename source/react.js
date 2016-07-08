@@ -45,7 +45,7 @@ var mapLegend = {
 	space : ' ',
 	player: 'p',
 	enemy : 'e',
-	potion: '+',
+	potion: '♥',
 	weapon: '#',
 	portal: '↨',
 }
