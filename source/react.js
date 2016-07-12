@@ -26,7 +26,8 @@
 * Weapons
 * One weapon upgrade per level, each upgrade increases probabilities ten percen in your favor
 * 
-* 
+* The game is only really "hard" if you don't play perfectly. 
+* To play "perfectly" you need to pick up all the health/weapon bonuses before attacking the enemies.
 * 
 *
 */
@@ -52,15 +53,21 @@ var mapLegend = {
 var gameDefaults = {
 	mapHeight: 10,
 	mapWidth : 10,
+	gameLevels: 10,
 	playerStartingHealth: 100,
 	enemiesPerLevel     : 5,
 	medianEnemyDamage   : 10,
 	potionsPerLevel     : 2,
 	medianPotionHealth  : 50,
+	expPerPlayerLevel   : 100,
+	medianExpPerKill    : 100 / 5,
 }
-function generateMap() {
+
+function generateMap(level, playerStartPos) {
 	var height = gameDefaults.mapHeight;
 	var width = gameDefaults.mapWidth;
+	var level = level || 1; /* not used, maybe only needs to be checked in order to spawn the boss */
+	var playerStartPos = playerStartPos || Math.floor(Math.random() * height * width);
 	var enemies = gameDefaults.enemiesPerLevel;
 	var newMap = new Array;
 	for (var i = 0; i < height * width; i++) {
@@ -77,6 +84,7 @@ function generateMap() {
 		var randomNumber = Math.floor(Math.random() * validCells.length);
 		return validCells[randomNumber];
 	}
+	newMap[playerStartPos || randomCellOf(mapLegend.space)] = mapLegend.player;
 	var enemies = enemies || 0;
 	while (enemies--) {
 		newMap[randomCellOf(mapLegend.space)] = mapLegend.enemy;
@@ -93,8 +101,6 @@ function generateMap() {
 	while (portals--) {
 		newMap[randomCellOf(mapLegend.space)] = mapLegend.portal;
 	}
-	newMap[randomCellOf(mapLegend.space)] = mapLegend.player;
-	// turn into a 2d array as the react code expects this format (early design decision)
 	return newMap;
 	
 }
@@ -136,7 +142,8 @@ var MainMap = React.createClass({
 			playerLevel : 0,
 			playerHealth: gameDefaults.playerStartingHealth,
 			weaponLevel : 0,
-			gameLevel   : 0,
+			gameLevel   : 1,
+			experience  : 0,
 		});
 	},
 	componentDidMount: function() {
@@ -149,13 +156,14 @@ var MainMap = React.createClass({
 	// calc if an attack killed the enemy, used to balance the game
 	killRoll: function() {
 		// player gains a level for each kill, a weapon upgrade is worth ten player levels
-		var userPower = 50 + this.state.playerLevel + 10 * this.state.weaponLevel;
-		var maxPowerGainedPerLevel = gameDefaults.enemiesPerLevel + 10;
-		var enemyPower = 50 + maxPowerGainedPerLevel * this.state.gameLevel;
+		var powerStep = 10;
+		var userPower = 50 + powerStep * (this.state.playerLevel + this.state.weaponLevel);
+		var estPowerGainedPerLevel = powerStep * (1 + 1);
+		var enemyPower = 50 + estPowerGainedPerLevel * this.state.gameLevel;
 		var roll = Math.random() * userPower > Math.random() * enemyPower;
 		return roll;
 	},
-	// TODO: make held down movement smoother
+	// TODO: make held down movement smoother 
 	handleKeyDown: function(e) { 
 		var keyCodeDirections = {
 			37: 'left' ,
@@ -185,12 +193,17 @@ var MainMap = React.createClass({
 		var playerHealth= this.state.playerHealth;
 		var playerLevel = this.state.playerLevel;
 		var weaponLevel = this.state.weaponLevel;
+		var gameLevel   = this.state.gameLevel;
+		var experience  = this.state.experience;
 		
 		if (newMap[targetSquare] === mapLegend.enemy) {
 			if (this.killRoll()) {
 				console.log('killed enemy')
 				newMap[targetSquare] = mapLegend.space;
-				playerLevel++;
+				experience += Math.round( gameDefaults.medianExpPerKill * (0.5 + Math.random()) );
+				if (experience >= gameDefaults.expPerPlayerLevel * (playerLevel + 1)) {
+					playerLevel++;
+				}
 			}
 			var damageRoll = Math.floor((gameDefaults.medianEnemyDamage + 1) * ( 1 + Math.random()) / 2);
 			playerHealth -= damageRoll;
@@ -207,6 +220,12 @@ var MainMap = React.createClass({
 			weaponLevel++;
 		}
 		
+		if (newMap[targetSquare] === mapLegend.portal) {
+			gameLevel++;
+			newPlayerPos = targetSquare;
+			newMap = generateMap(gameLevel, newPlayerPos)
+		}
+		
 		if (newMap[targetSquare] === mapLegend.space) {
 			newMap[oldPosition] = mapLegend.space;
 			newMap[targetSquare] = mapLegend.player;
@@ -218,7 +237,9 @@ var MainMap = React.createClass({
 			levelMap    : newMap,
 			playerHealth: playerHealth,
 			playerLevel : playerLevel,
-			weaponLevel : weaponLevel
+			weaponLevel : weaponLevel,
+			gameLevel   : gameLevel,
+			experience  : experience,
 		})
 		
 	},
@@ -240,6 +261,7 @@ var MainMap = React.createClass({
 				<div>player-lvl: {this.state.playerLevel}</div>
 				<div>weapon-lvl: {this.state.weaponLevel}</div>
 				<div>game-lvl: {this.state.gameLevel}</div>
+				<div>experience: {this.state.experience}</div>
 			</div>
 		)
 	}

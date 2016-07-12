@@ -33,6 +33,7 @@ Nice to haves:
 
 note to self: 
 
+ 
 npm install babel-preset-es2015 babel-preset-react
 
 start /b sass --watch source:public & ^
