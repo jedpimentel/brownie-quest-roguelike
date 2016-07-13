@@ -49,12 +49,14 @@ var mapLegend = {
 	potion: '♥',
 	weapon: '#',
 	portal: '↨',
+	boss  : '☼',
 }
 var gameDefaults = {
 	mapHeight: 10,
 	mapWidth : 10,
-	gameLevels: 10,
+	gameLevels: 5,
 	playerStartingHealth: 100,
+	playerMaxHealth     : 150,
 	enemiesPerLevel     : 5,
 	medianEnemyDamage   : 10,
 	potionsPerLevel     : 2,
@@ -97,9 +99,10 @@ function generateMap(level, playerStartPos) {
 	while (weapons--) {
 		newMap[randomCellOf(mapLegend.space)] = mapLegend.weapon;
 	}
-	var portals = 1;
-	while (portals--) {
+	if (level <  gameDefaults.gameLevels) {
 		newMap[randomCellOf(mapLegend.space)] = mapLegend.portal;
+	} else {
+		newMap[randomCellOf(mapLegend.space)] = mapLegend.boss;
 	}
 	return newMap;
 	
@@ -160,7 +163,7 @@ var MainMap = React.createClass({
 		var userPower = 50 + powerStep * (this.state.playerLevel + this.state.weaponLevel);
 		var estPowerGainedPerLevel = powerStep * (1 + 1);
 		var enemyPower = 50 + estPowerGainedPerLevel * this.state.gameLevel;
-		var roll = Math.random() * userPower > Math.random() * enemyPower;
+		var roll = 0.5 * (enemyPower/userPower) < Math.random();
 		return roll;
 	},
 	// TODO: make held down movement smoother 
@@ -205,14 +208,28 @@ var MainMap = React.createClass({
 					playerLevel++;
 				}
 			}
-			var damageRoll = Math.floor((gameDefaults.medianEnemyDamage + 1) * ( 1 + Math.random()) / 2);
+			var damageRoll = Math.floor((gameDefaults.medianEnemyDamage + 1) * ( 0.5 + Math.random()));
 			playerHealth -= damageRoll;
+		}
+		
+		if (newMap[targetSquare] === mapLegend.boss) {
+			if (this.killRoll() && this.killRoll()) {
+				console.log('killed the boss!!!!!!!\nYOU WIN!!!!!!')
+				newMap[targetSquare] = mapLegend.space;
+				experience += Math.round( gameDefaults.medianExpPerKill * (2.5 + Math.random()) );
+				if (experience >= gameDefaults.expPerPlayerLevel * (playerLevel + 1)) {
+					playerLevel++;
+				}
+			} else {
+				var damageRoll = Math.floor((gameDefaults.medianEnemyDamage + 1) * ( 0.5 + Math.random()));
+				playerHealth -= damageRoll;
+			}
 		}
 		
 		if (newMap[targetSquare] === mapLegend.potion) {
 			newMap[targetSquare] = mapLegend.space;
 			var healRoll = Math.floor((gameDefaults.medianPotionHealth + 1) * ( 1 + Math.random()) / 2);
-			playerHealth += healRoll;
+			playerHealth = Math.min(playerHealth + healRoll, gameDefaults.playerMaxHealth);
 		}
 		
 		if (newMap[targetSquare] === mapLegend.weapon) {
