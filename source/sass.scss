@@ -10,6 +10,8 @@ $map-player: blue;
 $map-wall  : gray;
 $map-space : black;
 
+$cell-size : 1em;
+
 #main {
 	;
 }
@@ -17,7 +19,6 @@ $map-space : black;
 #main-map {
 	;
 	div {
-		$cell-size: 2em;
 		display: inline-block;
 		width: $cell-size;
 		height: $cell-size;

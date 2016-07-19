@@ -40,7 +40,7 @@ var keyboardBindings = {
 	moveDown : 40,
 };
 
-
+// legend entries must be single characters
 var mapLegend = {
 	wall  : 'w',
 	space : ' ',
@@ -52,9 +52,10 @@ var mapLegend = {
 	boss  : '☼',
 }
 var gameDefaults = {
-	mapHeight: 10,
-	mapWidth : 10,
+	mapHeight: 30,
+	mapWidth : 40,
 	gameLevels: 5,
+	simpleMode: true, /* small map, no walls */
 	playerStartingHealth: 100,
 	playerMaxHealth     : 150,
 	enemiesPerLevel     : 5,
@@ -72,6 +73,11 @@ function generateMap(level, playerStartPos) {
 	var playerStartPos = playerStartPos || Math.floor(Math.random() * height * width);
 	var enemies = gameDefaults.enemiesPerLevel;
 	var newMap = new Array;
+	// simpleMode is used to debug the difficulty curve
+	if (gameDefaults.simpleMode === true) {
+		height = width = 10;
+		// something to deactivate the walls
+	}
 	for (var i = 0; i < height * width; i++) {
 		if ((i < width) || (i % width === 0) || (i % width === width - 1) || (i > width * (height - 1))) {
 			newMap.push(mapLegend.wall);
@@ -86,6 +92,14 @@ function generateMap(level, playerStartPos) {
 		var randomNumber = Math.floor(Math.random() * validCells.length);
 		return validCells[randomNumber];
 	}
+	
+	/*  R O O M   G E N E R A T O R
+	*
+	*
+	*/
+	
+	// START PLACING ENTITIES ONTO THE MAP 
+	
 	newMap[playerStartPos || randomCellOf(mapLegend.space)] = mapLegend.player;
 	var enemies = enemies || 0;
 	while (enemies--) {

@@ -52,9 +52,10 @@ var mapLegend = {
 	boss: '☼'
 };
 var gameDefaults = {
-	mapHeight: 10,
-	mapWidth: 10,
+	mapHeight: 30,
+	mapWidth: 40,
 	gameLevels: 5,
+	simpleMode: true, /* small map, no walls */
 	playerStartingHealth: 100,
 	playerMaxHealth: 150,
 	enemiesPerLevel: 5,
@@ -72,6 +73,11 @@ function generateMap(level, playerStartPos) {
 	var playerStartPos = playerStartPos || Math.floor(Math.random() * height * width);
 	var enemies = gameDefaults.enemiesPerLevel;
 	var newMap = new Array();
+	// simpleMode is used to debug the difficulty curve
+	if (gameDefaults.simpleMode === true) {
+		height = width = 10;
+		// something to deactivate the walls
+	}
 	for (var i = 0; i < height * width; i++) {
 		if (i < width || i % width === 0 || i % width === width - 1 || i > width * (height - 1)) {
 			newMap.push(mapLegend.wall);
