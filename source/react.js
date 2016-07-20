@@ -117,6 +117,8 @@ function generateMap(level, playerStartPos) {
 	*
 	*/
 	
+	// TODO something to avoid having room seeds spawn next to each other or on the edges
+
 	
 	var numberOfRooms = 5;
 	var roomArr = new Array();
@@ -130,11 +132,24 @@ function generateMap(level, playerStartPos) {
 		newRoom.left  = 0;
 		newRoom.validDirections = ['up', 'right', 'down', 'left'];
 		if (newRoom.position === -1) { break; }
-		newMap[newRoom.position] = mapLegend.weapon;
 		roomArr.push(newRoom);
+		
+		// DEBUG: this is a debug line to see the room centers
+		newMap[newRoom.position] = roomArr.length + 1;
+		
+		// TODO: place walls around the newly generated room seed (newRoom.position)
+		// in order to avoid two seeds being placed next to each other
+		// OR, use a better seeding algorithm
 	}
 	
-	//TODO: remove border walls
+	
+	roomArr.map(function(cell) {
+		// TODO: convert generator from generating wall blocks to generating space blocks
+		// TODO: after prev line is implemented, convert everything into walls
+		return;
+	});
+	
+	var iteration = 0;
 	while (roomArr.length > 0) {
 		for (var i = 0; i < roomArr.length; i++) {
 			var thisRoom = roomArr[i];
@@ -168,7 +183,68 @@ function generateMap(level, playerStartPos) {
 				x = -thisRoom.left;
 				y =  0; 
 			}
+			// tangent relative to rooms' seed cell. Seed plus (x,y) displacement
+			var tangentCell = cellPlusVector(thisRoom.position, x, y);
 			
+			// new version
+			var lineStart, lineEnd, cellGap;
+			
+			// line of new cells is horizontal
+			if (randomDirection === 'up' || randomDirection === 'down'){
+				lineStart = cellPlusVector(tangentCell, -thisRoom.left , 0);
+				lineEnd   = cellPlusVector(tangentCell, +thisRoom.right, 0);
+				cellGap   = 1;
+			} 
+			// line of new cells is vertical
+			else if (randomDirection === 'right' || randomDirection === 'left') {
+				lineStart = cellPlusVector(tangentCell,0 , -thisRoom.up);
+				lineEnd   = cellPlusVector(tangentCell,0 , +thisRoom.down);
+				cellGap   = cellPlusVector(0, 0, 1);
+			}
+			console.log(lineStart, lineEnd, cellGap, randomDirection);
+			
+			// array of new cells to be added to the room, they are a line
+			var newRoomCellPositions = new Array();
+			
+			var selectionIsValid = true;
+			for (var j = lineStart; j <= lineEnd; j += cellGap) {
+				newRoomCellPositions.push(j);
+				if (newMap[j] === mapLegend.wall) {
+					selectionIsValid = false;
+				}
+			}
+			
+
+			if (selectionIsValid) {
+				newRoomCellPositions.map(function(cellIndex) {
+				newMap[cellIndex] = mapLegend.wall;
+				});
+			} else {
+				
+				//TODO: go back one line (to leave space between rooms)
+				
+				// TODO check if the offset code breaks if the direction value is zero
+				if (true /*thisRoom[randomDirection] !== 0*/) {
+					var offset = ( thisRoom.position - tangentCell) / thisRoom[randomDirection];
+					console.log("OFFSET IS", offset, randomDirection)
+					newRoomCellPositions.map(function(cellIndex) {
+						
+						// newMap[cellIndex + offset] =  mapLegend.space;
+						// TODO: revert debug version to previous line
+						newMap[cellIndex + offset] =  '◙';
+						
+					});
+					
+				}
+				// remove that direction,
+				thisRoom[randomDirection]--;
+				roomArr[i].validDirections.splice(randomDirectionIndex, 1);
+				
+			}
+			
+			
+			
+			/* old verson
 			var newWallPosition = cellPlusVector(roomArr[i].position, x, y);
 			if (newMap[newWallPosition] === mapLegend.wall) {
 				// remove that direction
@@ -177,10 +253,10 @@ function generateMap(level, playerStartPos) {
 			} else {
 				newMap[newWallPosition] = mapLegend.wall; 
 			}
-			
-			
+			*/
 			
 		}
+		if (++iteration == 300) { break; }
 		
 	}
 	
