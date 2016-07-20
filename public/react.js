@@ -41,6 +41,7 @@ var keyboardBindings = {
 	moveDown: 40
 };
 
+// legend entries must be single characters
 var mapLegend = {
 	wall: 'w',
 	space: ' ',
@@ -55,7 +56,7 @@ var gameDefaults = {
 	mapHeight: 30,
 	mapWidth: 40,
 	gameLevels: 5,
-	simpleMode: true, /* small map, no walls */
+	simpleMode: false, /* small map, no walls */
 	playerStartingHealth: 100,
 	playerMaxHealth: 150,
 	enemiesPerLevel: 5,
@@ -65,6 +66,11 @@ var gameDefaults = {
 	expPerPlayerLevel: 100,
 	medianExpPerKill: 100 / 5
 };
+if (gameDefaults.simpleMode) {
+	var simpleModeSize = 10;
+	gameDefaults.mapHeight = simpleModeSize;
+	gameDefaults.mapWidth = simpleModeSize;
+}
 
 function generateMap(level, playerStartPos) {
 	var height = gameDefaults.mapHeight;
@@ -75,7 +81,6 @@ function generateMap(level, playerStartPos) {
 	var newMap = new Array();
 	// simpleMode is used to debug the difficulty curve
 	if (gameDefaults.simpleMode === true) {
-		height = width = 10;
 		// something to deactivate the walls
 	}
 	for (var i = 0; i < height * width; i++) {
@@ -94,6 +99,89 @@ function generateMap(level, playerStartPos) {
 		var randomNumber = Math.floor(Math.random() * validCells.length);
 		return validCells[randomNumber];
 	}
+
+	// not 100% sure if this works as expected
+	// takes 1d map posision and offset direction, returns the offsetted position
+	function cellPlusVector(originCell, xVector, yVector) {
+		var originalX = originCell % width;
+		var originalY = Math.floor(originCell / width);
+		var newX = originalX + xVector;
+		var newY = originalY + yVector;
+		if (newX < 0 || newX >= width || newY < 0 || newY >= height) {
+			return false;
+		}
+		var newCell = newX + newY * width;
+		return newCell;
+	}
+
+	/*  R O O M   G E N E R A T O R
+ *
+ *
+ */
+
+	var numberOfRooms = 5;
+	var roomArr = new Array();
+	while (numberOfRooms--) {
+		var newRoom = new Object();
+		newRoom.position = randomCellOf(mapLegend.space);
+		// the directions are how many cells the room extend out from their origin
+		newRoom.up = 0;
+		newRoom.right = 0;
+		newRoom.down = 0;
+		newRoom.left = 0;
+		newRoom.validDirections = ['up', 'right', 'down', 'left'];
+		if (newRoom.position === -1) {
+			break;
+		}
+		newMap[newRoom.position] = mapLegend.weapon;
+		roomArr.push(newRoom);
+	}
+
+	//TODO: remove border walls
+	while (roomArr.length > 0) {
+		for (var i = 0; i < roomArr.length; i++) {
+			var thisRoom = roomArr[i];
+			var validDirections = thisRoom.validDirections;
+			if (validDirections.length <= 0) {
+				console.log(roomArr);
+				roomArr.splice(i, 1);
+				continue;
+			}
+			var randomDirectionIndex = Math.floor(Math.random() * validDirections.length);
+			var randomDirection = validDirections[randomDirectionIndex];
+			// (x, y) vector of room's new cell/row
+			var x, y;
+			if (randomDirection === 'up') {
+				thisRoom.up++;
+				x = 0;
+				y = -thisRoom.up;
+			} else if (randomDirection === 'right') {
+				thisRoom.right++;
+				x = +thisRoom.right;
+				y = 0;
+			} else if (randomDirection === 'down') {
+				thisRoom.down++;
+				x = 0;
+				y = +thisRoom.down;
+			} else if (randomDirection === 'left') {
+				thisRoom.left++;
+				x = -thisRoom.left;
+				y = 0;
+			}
+
+			var newWallPosition = cellPlusVector(roomArr[i].position, x, y);
+			if (newMap[newWallPosition] === mapLegend.wall) {
+				// remove that direction
+				roomArr[i].validDirections.splice(randomDirectionIndex, 1);
+				//TODO: go back one line (to leave space between rooms)
+			} else {
+				newMap[newWallPosition] = mapLegend.wall;
+			}
+		}
+	}
+
+	// START PLACING ENTITIES ONTO THE MAP
+
 	newMap[playerStartPos || randomCellOf(mapLegend.space)] = mapLegend.player;
 	var enemies = enemies || 0;
 	while (enemies--) {

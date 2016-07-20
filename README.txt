@@ -39,3 +39,5 @@ npm install babel-preset-es2015 babel-preset-react
 start /b sass --watch source:public & ^
 start /b babel --presets es2015,react --watch source/ --out-dir public/  & ^
 start /b http-server ./
+
+
