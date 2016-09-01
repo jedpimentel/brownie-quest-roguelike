@@ -43,6 +43,7 @@ var keyboardBindings = {
 // legend entries must be single characters
 var mapLegend = {
 	wall  : 'w',
+	fence : '◙', 
 	space : ' ',
 	player: 'p',
 	enemy : 'e',
@@ -52,8 +53,8 @@ var mapLegend = {
 	boss  : '☼',
 }
 var gameDefaults = {
-	mapHeight: 30,
-	mapWidth : 40,
+	mapHeight: 20,
+	mapWidth : 30,
 	gameLevels: 5,
 	simpleMode: false, /* small map, no walls */
 	playerStartingHealth: 100,
@@ -72,6 +73,9 @@ if (gameDefaults.simpleMode) {
 }
 
 function generateMap(level, playerStartPos) {
+	
+	
+	
 	var height = gameDefaults.mapHeight;
 	var width = gameDefaults.mapWidth;
 	var level = level || 1; /* not used, maybe only needs to be checked in order to spawn the boss */
@@ -84,6 +88,7 @@ function generateMap(level, playerStartPos) {
 	}
 	for (var i = 0; i < height * width; i++) {
 		if ((i < width) || (i % width === 0) || (i % width === width - 1) || (i > width * (height - 1))) {
+			// edge of map
 			newMap.push(mapLegend.wall);
 		} else {
 			newMap.push(mapLegend.space);
@@ -125,6 +130,7 @@ function generateMap(level, playerStartPos) {
 	while (numberOfRooms--) {
 		var newRoom = new Object();
 		newRoom.position = randomCellOf(mapLegend.space)
+		if (numberOfRooms === 0) { newRoom.position = playerStartPos; }
 		// the directions are how many cells the room extend out from their origin
 		newRoom.up    = 0;
 		newRoom.right = 0;
@@ -135,7 +141,7 @@ function generateMap(level, playerStartPos) {
 		roomArr.push(newRoom);
 		
 		// DEBUG: this is a debug line to see the room centers
-		newMap[newRoom.position] = roomArr.length + 1;
+		//newMap[newRoom.position] = roomArr.length + 1;
 		
 		// TODO: place walls around the newly generated room seed (newRoom.position)
 		// in order to avoid two seeds being placed next to each other
@@ -155,7 +161,7 @@ function generateMap(level, playerStartPos) {
 			var thisRoom = roomArr[i];
 			var validDirections = thisRoom.validDirections;
 			if (validDirections.length <= 0) { 
-				console.log(roomArr);
+				//console.log(roomArr);
 				roomArr.splice(i, 1);
 				continue;
 			}
@@ -201,7 +207,7 @@ function generateMap(level, playerStartPos) {
 				lineEnd   = cellPlusVector(tangentCell,0 , +thisRoom.down);
 				cellGap   = cellPlusVector(0, 0, 1);
 			}
-			console.log(lineStart, lineEnd, cellGap, randomDirection);
+			//console.log(lineStart, lineEnd, cellGap, randomDirection);
 			
 			// array of new cells to be added to the room, they are a line
 			var newRoomCellPositions = new Array();
@@ -226,12 +232,12 @@ function generateMap(level, playerStartPos) {
 				// TODO check if the offset code breaks if the direction value is zero
 				if (true /*thisRoom[randomDirection] !== 0*/) {
 					var offset = ( thisRoom.position - tangentCell) / thisRoom[randomDirection];
-					console.log("OFFSET IS", offset, randomDirection)
+					//console.log("OFFSET IS", offset, randomDirection)
 					newRoomCellPositions.map(function(cellIndex) {
 						
 						// newMap[cellIndex + offset] =  mapLegend.space;
 						// TODO: revert debug version to previous line
-						newMap[cellIndex + offset] =  '◙';
+						newMap[cellIndex + offset] =  mapLegend.fence;
 						
 					});
 					
@@ -256,15 +262,113 @@ function generateMap(level, playerStartPos) {
 			*/
 			
 		}
-		if (++iteration == 300) { break; }
+		if (++iteration >= 500) { break; }
 		
 	}
 	
+	// remove filler walls, leving only the "fences"
+	// remove the room seeds
+	newMap = newMap.map(function(val) {
+		if (val   === mapLegend.wall) { return mapLegend.space; }
+		//if (typeof(val) === 'number') { return mapLegend.space; }
+		return val;
+	});
+	
+	// fill out any isolated areas within map
+	
+	/** 
+	*
+	*	A quick decision. The map generator was having an issue where the player wouldn't
+	*	be able to walk everywhere, some areas would be fenced in. My first idea was to have the map thrown away
+	*	and restart the generator, it could;ve probably been done by calling the generator function recursively 
+	*	within itself, with the same parameters (while stopping the current iteration, of course). 
+	*
+	*	Then I thought, there is another option. Just fill those out. Make an algorithm to check how many "sections"
+	*	there are, and make everything that in't part of the biggest segment one giant block. I think this solution
+	*	is technically better, and a bit flashier.
+	*
+	*	It would be cool to have both those options. But I'm going to implement the second one only since I'd still
+	*	have to make a room crawler algorith, and it's a bit less esoteric.
+	*
+	**/
+	
+	
+	// a "chunk" would be the group of tiles connected by up/right/down/left directions 
+	// in the case of floor tiles, this would be the tiles the player can walk to 
+	// function returns array of positions that are part of same chunk
+	
+	function getTileChunk(firstTile) {
+		var targetTileType = newMap[firstTile];
+		var alreadySetToBeChecked = newMap.map(function() { return false; });
+		
+		var chunkMembers = [];
+		var toCheck = [firstTile]
+		
+		function addNeighborsToCheck(tile) {
+			// NOTE: cellPlusVector returns false for targets outside of map
+			var newPos = [];
+			newPos.push(cellPlusVector(tile,  1,  0));
+			newPos.push(cellPlusVector(tile,  0,  1));
+			newPos.push(cellPlusVector(tile, -1,  0));
+			newPos.push(cellPlusVector(tile,  0, -1));
+			while (newPos.length > 0) {
+				var newValToCheck = newPos.pop();
+				if (newValToCheck !== false && (alreadySetToBeChecked[newValToCheck] === false)) {
+					toCheck.push(newValToCheck);
+					alreadySetToBeChecked[newValToCheck] = true;
+				}
+			}
+			return;
+		}
+		
+		while (toCheck.length > 0) {
+			var currentPos = toCheck.pop();
+			if (newMap[currentPos] === targetTileType) {
+				chunkMembers.push(currentPos);
+				addNeighborsToCheck(currentPos);
+			}
+		}
+		return chunkMembers;
+	}
+	
+	/** - SHORTCUT TAKEN - 
+	* TODO: Instead of checking which chunk is the biggest
+	* I just used whatever the player start position is, to avoid bugs where the user 
+	* wasn't inside of the alkable area.
+	*
+	*
+	* 
+	*/
+	
+	console.log('map is', newMap)
+	// force these tiles as space to avoid player spawning in a broom closet
+	newMap[cellPlusVector(playerStartPos, -2,  0)] = mapLegend.space;
+	newMap[cellPlusVector(playerStartPos, -1,  0)] = mapLegend.space;
+	newMap[cellPlusVector(playerStartPos,  1,  0)] = mapLegend.space;
+	newMap[cellPlusVector(playerStartPos,  2,  0)] = mapLegend.space;
+	newMap[cellPlusVector(playerStartPos,  0, -2)] = mapLegend.space;
+	newMap[cellPlusVector(playerStartPos,  0, -1)] = mapLegend.space;
+	newMap[cellPlusVector(playerStartPos,  0,  1)] = mapLegend.space;
+	newMap[cellPlusVector(playerStartPos,  0,  2)] = mapLegend.space;
+	 
+	var emptyTiles = getTileChunk(playerStartPos);
+	
+	newMap = newMap.map(function() { return mapLegend.fence; });
+	emptyTiles.map(function(val) { 
+		newMap[val] = mapLegend.space;
+	});
+	
+	//console.log(mapChunks);
 	
 	
 	// START PLACING ENTITIES ONTO THE MAP 
 	
 	newMap[playerStartPos || randomCellOf(mapLegend.space)] = mapLegend.player;
+	if (level <  gameDefaults.gameLevels) {
+		newMap[randomCellOf(mapLegend.space)] = mapLegend.portal;
+	} else {
+		newMap[randomCellOf(mapLegend.space)] = mapLegend.boss;
+	}
 	var enemies = enemies || 0;
 	while (enemies--) {
 		newMap[randomCellOf(mapLegend.space)] = mapLegend.enemy;
@@ -276,11 +380,6 @@ function generateMap(level, playerStartPos) {
 	var weapons = 1;
 	while (weapons--) {
 		newMap[randomCellOf(mapLegend.space)] = mapLegend.weapon;
-	}
-	if (level <  gameDefaults.gameLevels) {
-		newMap[randomCellOf(mapLegend.space)] = mapLegend.portal;
-	} else {
-		newMap[randomCellOf(mapLegend.space)] = mapLegend.boss;
 	}
 	return newMap;
 	
@@ -360,6 +459,11 @@ var MainMap = React.createClass({
 		//console.log(direction)
 		var playerPos = this.state.playerPos;
 		var cellAtDirection;
+		
+		// check if player is trying to walk off a border
+		if (direction === 'right' && (((playerPos +1) % this.state.mapWidth) === 0)) { return playerPos; }
+		if (direction === 'left'  && (((playerPos   ) % this.state.mapWidth) === 0)) { return playerPos; } 
+		
 		if (direction === 'up'   ) {return playerPos - this.state.mapWidth;}
 		if (direction === 'right') {return playerPos + 1;}
 		if (direction === 'down' ) {return playerPos + this.state.mapWidth;}
@@ -367,7 +471,7 @@ var MainMap = React.createClass({
 		throw direction + ' is not a valid direction for cellAt';
 	},
 	movePlayer: function(targetSquare) {
-		var oldPosition = this.state.playerPos;
+		var oldPosition = this.state.playerPos; 
 		var oldMap      = this.state.levelMap;
 		var newPlayerPos= this.state.playerPos;
 		var newMap      = oldMap.slice();
