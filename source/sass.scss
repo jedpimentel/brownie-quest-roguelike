@@ -13,7 +13,7 @@ $map-space : black;
 $cell-size : 1em;
 
 #main {
-	;
+	text-align: center;
 }
 
 #main-map {
@@ -29,5 +29,18 @@ $cell-size : 1em;
 		
 		border: 1px solid black;
 		
+		img {
+			$width-increase : 50%;
+			
+			display: inline-block;
+			width: 100% + $width-increase;
+			position: relative;
+			right: $width-increase / 2;
+			bottom: $width-increase / 2;
+		}
+		
+	}
+	img {
+		;
 	}
 }

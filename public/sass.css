@@ -5,6 +5,9 @@
 * 
 *
 **/
+#main {
+  text-align: center; }
+
 #main-map div {
   display: inline-block;
   width: 1em;
@@ -14,5 +17,11 @@
   vertical-align: bottom;
   background-color: #EEE;
   border: 1px solid black; }
+  #main-map div img {
+    display: inline-block;
+    width: 150%;
+    position: relative;
+    right: 25%;
+    bottom: 25%; }
 
 /*# sourceMappingURL=sass.css.map */

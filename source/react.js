@@ -52,15 +52,26 @@ var mapLegend = {
 	portal: '↨',
 	boss  : '☼',
 }
+var gameImg = {
+	[mapLegend.weapon] : "img/sword-hi.png",
+	[mapLegend.potion] : "img/potion-hi.png",
+	[mapLegend.player] : "img/player-hi.png",
+	[mapLegend.enemy]  : "img/enemy-hi.png",
+	[mapLegend.boss]   : "img/boss-hi.png",
+	[mapLegend.portal] : "img/door-hi.png",
+}
 var gameDefaults = {
 	mapHeight: 20,
-	mapWidth : 30,
+	mapWidth : 20,
 	gameLevels: 5,
 	simpleMode: false, /* small map, no walls */
 	playerStartingHealth: 100,
 	playerMaxHealth     : 150,
 	enemiesPerLevel     : 5,
+	enemyHealth         : 100,
+	bossHealth          : 300,
 	medianEnemyDamage   : 10,
+	playerBaseDamage    : 50,
 	potionsPerLevel     : 2,
 	medianPotionHealth  : 50,
 	expPerPlayerLevel   : 100,
@@ -84,7 +95,7 @@ function generateMap(level, playerStartPos) {
 	var newMap = new Array;
 	// simpleMode is used to debug the difficulty curve
 	if (gameDefaults.simpleMode === true) {
-		// something to deactivate the walls
+		// TODO: something to deactivate the walls and make room small
 	}
 	for (var i = 0; i < height * width; i++) {
 		if ((i < width) || (i % width === 0) || (i % width === width - 1) || (i > width * (height - 1))) {
@@ -346,6 +357,7 @@ function generateMap(level, playerStartPos) {
 	newMap[cellPlusVector(playerStartPos, -1,  0)] = mapLegend.space;
 	newMap[cellPlusVector(playerStartPos,  1,  0)] = mapLegend.space;
 	newMap[cellPlusVector(playerStartPos,  2,  0)] = mapLegend.space;
+	newMap[cellPlusVector(playerStartPos,  0,  0)] = mapLegend.space;
 	newMap[cellPlusVector(playerStartPos,  0, -2)] = mapLegend.space;
 	newMap[cellPlusVector(playerStartPos,  0, -1)] = mapLegend.space;
 	newMap[cellPlusVector(playerStartPos,  0,  1)] = mapLegend.space;
@@ -398,9 +410,16 @@ function findAllIndexes(arr, val) {
 
 var MapCell = React.createClass({
 	render: function() {
-		return (
-			<div>{this.props.mapChar}</div>
-		)
+		if (gameImg[this.props.mapChar] !== undefined) {
+			return (
+				<div><img src={gameImg[this.props.mapChar]} alt={this.props.mapChar} /></div>
+			)
+		}
+		else {
+			return (
+				<div>{this.props.mapChar}</div>
+			)
+		}
 	}
 });
 
@@ -410,12 +429,14 @@ var MainMap = React.createClass({
 		var mapHeight = gameDefaults.mapHeight;
 		var mapWidth = gameDefaults.mapWidth;
 		var levelMap = generateMap();
+		var damageMap = levelMap.map(function() {return 0; });
 		// convert 2d arr to 1d arr no longer necessary
 		// var flattenedMap = Array.prototype.concat.apply([], initialMap);
 		var playerPos = levelMap.indexOf(mapLegend.player)
 		
 		return ({
 			levelMap    : levelMap,
+			damageMap	: damageMap, /* ??? delet dis*/
 			mapWidth    : mapWidth,
 			mapHeight   : mapHeight,
 			playerPos   : playerPos,
@@ -426,6 +447,16 @@ var MainMap = React.createClass({
 			experience  : 0,
 		});
 	},
+	//delete the duplicate in getInitialState
+	damageMap: function() {
+		var damageMap = [];
+		for (var i = 0; i < gameDefaults.mapHeight * gameDefaults.mapWidth; i++) {
+			damageMap.push(0);
+		}
+		return damageMap;
+	} ()
+		
+	,
 	componentDidMount: function() {
 		window.addEventListener('keydown', this.handleKeyDown);
 	},
@@ -433,15 +464,30 @@ var MainMap = React.createClass({
 		window.removeEventListener('keydown', this.handleKeyDown);
 	},
 	// ! ! ! S U P E R   I M P O R T A N T ! ! !
-	// calc if an attack killed the enemy, used to balance the game
-	killRoll: function() {
-		// player gains a level for each kill, a weapon upgrade is worth ten player levels
-		var powerStep = 10;
+	// calculates new damage state.array of enemies, used to balance the game
+	// used to act as a "roll" of dice before a health system was added for enemies
+	killRoll: function(enemyPos, isBoss) {
+		var requiredDamage = isBoss ? gameDefaults.bossHealth : gameDefaults.enemyHealth;
+		var basePlayerStrength = gameDefaults.playerBaseDamage;
+		
+		// player should on average gain a level for killing a room's worth of enemies
+		// a weapon upgrade is worth a player level
+		var powerStep = 25;
 		var userPower = 50 + powerStep * (this.state.playerLevel + this.state.weaponLevel);
 		var estPowerGainedPerLevel = powerStep * (1 + 1);
-		var enemyPower = 50 + estPowerGainedPerLevel * this.state.gameLevel;
-		var roll = 0.5 * (enemyPower/userPower) < Math.random();
-		return roll;
+		var enemyPower = 50 + estPowerGainedPerLevel * (this.state.gameLevel);
+		var roll = 0.5 + (userPower/enemyPower) * Math.random(); 
+		
+		
+		this.damageMap[enemyPos] += roll * basePlayerStrength;
+		
+		console.log("player pwr:", userPower);
+		console.log(this.damageMap[enemyPos], roll, basePlayerStrength);
+		
+		if (this.damageMap[enemyPos] >= requiredDamage) {
+			return true;
+		}
+		return false
 	},
 	// TODO: make held down movement smoother 
 	handleKeyDown: function(e) { 
@@ -482,7 +528,7 @@ var MainMap = React.createClass({
 		var experience  = this.state.experience;
 		
 		if (newMap[targetSquare] === mapLegend.enemy) {
-			if (this.killRoll()) {
+			if (this.killRoll(targetSquare, false)) {
 				console.log('killed enemy')
 				newMap[targetSquare] = mapLegend.space;
 				experience += Math.round( gameDefaults.medianExpPerKill * (0.5 + Math.random()) );
@@ -495,8 +541,9 @@ var MainMap = React.createClass({
 		}
 		
 		if (newMap[targetSquare] === mapLegend.boss) {
-			if (this.killRoll() && this.killRoll()) {
+			if (this.killRoll(targetSquare, true)) {
 				console.log('killed the boss!!!!!!!\nYOU WIN!!!!!!')
+				alert("You have defeated the despicable EvilBot™ and saved the ENTIRE WORLD! Congratulations brave savior!");
 				newMap[targetSquare] = mapLegend.space;
 				experience += Math.round( gameDefaults.medianExpPerKill * (2.5 + Math.random()) );
 				if (experience >= gameDefaults.expPerPlayerLevel * (playerLevel + 1)) {
@@ -553,14 +600,16 @@ var MainMap = React.createClass({
 		}
 		return (
 			<div id='game-area' onKeyPress={this.handleKeyPress}>
+				<h1>BROWNIE QUEST!</h1>
+				<p>Move with arrow keys. Defeat the final boss</p>
 				<div id='main-map'>
 					{mapDisplay}
 				</div>
 				<div>health: {this.state.playerHealth}</div>
-				<div>player-lvl: {this.state.playerLevel}</div>
-				<div>weapon-lvl: {this.state.weaponLevel}</div>
-				<div>game-lvl: {this.state.gameLevel}</div>
-				<div>experience: {this.state.experience}</div>
+				<div>Dungeon: {this.state.gameLevel}</div>
+				<div>Level: {this.state.playerLevel}</div>
+				<div>Swords: {this.state.weaponLevel}</div>
+				<div>Brownie Points: {this.state.experience}</div>
 			</div>
 		)
 	}
