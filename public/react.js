@@ -58,6 +58,12 @@ var mapLegend = {
 	boss: '☼'
 };
 var gameImg = (_gameImg = {}, _defineProperty(_gameImg, mapLegend.weapon, "img/sword-hi.png"), _defineProperty(_gameImg, mapLegend.potion, "img/potion-hi.png"), _defineProperty(_gameImg, mapLegend.player, "img/player-hi.png"), _defineProperty(_gameImg, mapLegend.enemy, "img/enemy-hi.png"), _defineProperty(_gameImg, mapLegend.boss, "img/boss-hi.png"), _defineProperty(_gameImg, mapLegend.portal, "img/door-hi.png"), _gameImg);
+// this is meant to be set to "true" for codepen hosting
+if (true) {
+	var _gameImg2;
+
+	gameImg = (_gameImg2 = {}, _defineProperty(_gameImg2, mapLegend.weapon, "https://www.dropbox.com/s/2cecxxjlokco3yp/sword-hi.png?dl=1"), _defineProperty(_gameImg2, mapLegend.potion, "https://www.dropbox.com/s/woy9svdovsf07p8/potion-hi.png?dl=1"), _defineProperty(_gameImg2, mapLegend.player, "https://www.dropbox.com/s/uoli1a57tbfc44d/player-hi.png?dl=1"), _defineProperty(_gameImg2, mapLegend.enemy, "https://www.dropbox.com/s/4tv0yxsadgza5gh/enemy-hi.png?dl=1"), _defineProperty(_gameImg2, mapLegend.boss, "https://www.dropbox.com/s/bxdm9iiqu4fuef6/boss-hi.png?dl=1"), _defineProperty(_gameImg2, mapLegend.portal, "https://www.dropbox.com/s/7gzgkly6lh07kyn/door-hi.png?dl=1"), _gameImg2);
+}
 var gameDefaults = {
 	mapHeight: 20,
 	mapWidth: 20,
@@ -452,6 +458,10 @@ var MainMap = React.createClass({
 		};
 	},
 	//delete the duplicate in getInitialState
+	// IMPORTANT!!! There's  good chance that the damageMap data is being carried over between levels
+	// damageMap needs to be implemented as a state, I've left it as-is, since it shouldn't affect the gameplay too much
+	// unless someone it playing more than just a few rounds, in which case I'd rather they just get the 1-hit-ko
+	// #FeatureNotABug
 	damageMap: function () {
 		var damageMap = [];
 		for (var i = 0; i < gameDefaults.mapHeight * gameDefaults.mapWidth; i++) {
@@ -592,6 +602,14 @@ var MainMap = React.createClass({
 			newPlayerPos = targetSquare;
 		}
 
+		if (playerHealth <= 0) {
+			console.log("YOU DIED!");
+			//console.log(this.getInitialState())
+			alert("You died :(");
+			this.setState(this.getInitialState());
+			return;
+		}
+
 		this.setState({
 			playerPos: newPlayerPos,
 			levelMap: newMap,
@@ -622,7 +640,7 @@ var MainMap = React.createClass({
 			React.createElement(
 				'p',
 				null,
-				'Move with arrow keys. Defeat the final boss'
+				'Move with arrow keys. Defeat the final boss!'
 			),
 			React.createElement(
 				'div',
@@ -632,7 +650,7 @@ var MainMap = React.createClass({
 			React.createElement(
 				'div',
 				null,
-				'health: ',
+				'Health: ',
 				this.state.playerHealth
 			),
 			React.createElement(
@@ -650,7 +668,7 @@ var MainMap = React.createClass({
 			React.createElement(
 				'div',
 				null,
-				'Swords: ',
+				'Knifes: ',
 				this.state.weaponLevel
 			),
 			React.createElement(

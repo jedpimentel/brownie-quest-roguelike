@@ -60,6 +60,17 @@ var gameImg = {
 	[mapLegend.boss]   : "img/boss-hi.png",
 	[mapLegend.portal] : "img/door-hi.png",
 }
+// this is meant to be set to "true" for codepen hosting
+if (true) {
+	gameImg = {
+		[mapLegend.weapon] : "https://www.dropbox.com/s/2cecxxjlokco3yp/sword-hi.png?dl=1",
+		[mapLegend.potion] : "https://www.dropbox.com/s/woy9svdovsf07p8/potion-hi.png?dl=1",
+		[mapLegend.player] : "https://www.dropbox.com/s/uoli1a57tbfc44d/player-hi.png?dl=1",
+		[mapLegend.enemy]  : "https://www.dropbox.com/s/4tv0yxsadgza5gh/enemy-hi.png?dl=1",
+		[mapLegend.boss]   : "https://www.dropbox.com/s/bxdm9iiqu4fuef6/boss-hi.png?dl=1",
+		[mapLegend.portal] : "https://www.dropbox.com/s/7gzgkly6lh07kyn/door-hi.png?dl=1",
+}
+}
 var gameDefaults = {
 	mapHeight: 20,
 	mapWidth : 20,
@@ -84,8 +95,6 @@ if (gameDefaults.simpleMode) {
 }
 
 function generateMap(level, playerStartPos) {
-	
-	
 	
 	var height = gameDefaults.mapHeight;
 	var width = gameDefaults.mapWidth;
@@ -448,6 +457,10 @@ var MainMap = React.createClass({
 		});
 	},
 	//delete the duplicate in getInitialState
+	// IMPORTANT!!! There's  good chance that the damageMap data is being carried over between levels
+	// damageMap needs to be implemented as a state, I've left it as-is, since it shouldn't affect the gameplay too much
+	// unless someone it playing more than just a few rounds, in which case I'd rather they just get the 1-hit-ko
+	// #FeatureNotABug
 	damageMap: function() {
 		var damageMap = [];
 		for (var i = 0; i < gameDefaults.mapHeight * gameDefaults.mapWidth; i++) {
@@ -578,6 +591,14 @@ var MainMap = React.createClass({
 			newPlayerPos = targetSquare;
 		}
 		
+		if (playerHealth <= 0) {
+			console.log("YOU DIED!");
+			//console.log(this.getInitialState())
+			alert("You died :(");
+			this.setState(this.getInitialState());
+			return;
+		}
+		
 		this.setState({
 			playerPos   : newPlayerPos,
 			levelMap    : newMap,
@@ -601,14 +622,14 @@ var MainMap = React.createClass({
 		return (
 			<div id='game-area' onKeyPress={this.handleKeyPress}>
 				<h1>BROWNIE QUEST!</h1>
-				<p>Move with arrow keys. Defeat the final boss</p>
+				<p>Move with arrow keys. Defeat the final boss!</p>
 				<div id='main-map'>
 					{mapDisplay}
 				</div>
-				<div>health: {this.state.playerHealth}</div>
+				<div>Health: {this.state.playerHealth}</div>
 				<div>Dungeon: {this.state.gameLevel}</div>
 				<div>Level: {this.state.playerLevel}</div>
-				<div>Swords: {this.state.weaponLevel}</div>
+				<div>Knifes: {this.state.weaponLevel}</div>
 				<div>Brownie Points: {this.state.experience}</div>
 			</div>
 		)
