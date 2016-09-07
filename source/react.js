@@ -1,34 +1,18 @@
 'use strict';
 
+// TODO: clean up the code
+
 /**
 * raw map data is meant to be represented as characters.
 * 
-* STAT DEFINITION
-* speed: in battle, used to calculate if either player or enemy hits first (not used)
-* vitality: max health, though might be better off not using health caps
-* offense: more offense means each hit given is more effective
-* defense: more defense means each hit recieved removes smaller chunks of your health (use player level)
-* 
-* map generation rules:
-* 	must be bordered by walls
-*
-* ENEMIES
-* Normal enemies don't really have health.
-* Instead, on each attack a chance roll is made, if it passes they die. 
-* This system will make enemies seem to have different amounts of health.
-* Enemy "strength" will depend solely on their level
-* The final boss does have health.
+* Player starts with certain amount of health and can get more via potions
+* Player and enemies have their own attack strenght, which are modified by levels and weapons
 *
 * LEVELS
-* You start at level 1, killing an enemy increases your level by one
-* Each level affects probaility rolls one percent in your favor
+* You start at level 1, on average you'll gain a level for killing a room worth's of enemies
 *
 * Weapons
 * One weapon upgrade per level, each upgrade increases probabilities ten percen in your favor
-* 
-* The game is only really "hard" if you don't play perfectly. 
-* To play "perfectly" you need to pick up all the health/weapon bonuses before attacking the enemies.
-* 
 *
 */
 
@@ -40,10 +24,10 @@ var keyboardBindings = {
 	moveDown : 40,
 };
 
-// legend entries must be single characters
+// legend entries should be single characters
 var mapLegend = {
-	wall  : 'w',
-	fence : '◙', 
+	wall  : 'w', /*used by the map generator */
+	fence : '◙', /*the actual "walls" in the completed map*/
 	space : ' ',
 	player: 'p',
 	enemy : 'e',
@@ -114,7 +98,7 @@ function generateMap(level, playerStartPos) {
 			newMap.push(mapLegend.space);
 		}
 	}
-	// unoptimized, returns valid index containing entry
+	// returns valid index containing entry, might be optimizable
 	function randomCellOf(legendEntry) {
 		var validCells = findAllIndexes(newMap, legendEntry);
 		if (validCells.length < 1) { return -1; }
@@ -122,7 +106,7 @@ function generateMap(level, playerStartPos) {
 		return validCells[randomNumber];
 	}
 	
-	// not 100% sure if this works as expected
+	// 2d map is represented as a 1d array/map
 	// takes 1d map posision and offset direction, returns the offsetted position
 	function cellPlusVector(originCell, xVector, yVector) {
 		var originalX = originCell % width;
@@ -151,13 +135,16 @@ function generateMap(level, playerStartPos) {
 		var newRoom = new Object();
 		newRoom.position = randomCellOf(mapLegend.space)
 		if (numberOfRooms === 0) { newRoom.position = playerStartPos; }
-		// the directions are how many cells the room extend out from their origin
+		// the directional integers are how many cells the room extend out from their origin
 		newRoom.up    = 0;
 		newRoom.right = 0;
 		newRoom.down  = 0;
 		newRoom.left  = 0;
 		newRoom.validDirections = ['up', 'right', 'down', 'left'];
-		if (newRoom.position === -1) { break; }
+		if (newRoom.position === -1) {
+			// no available space for room seed
+			break;
+		}
 		roomArr.push(newRoom);
 		
 		// DEBUG: this is a debug line to see the room centers
